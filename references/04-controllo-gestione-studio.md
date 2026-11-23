@@ -50,13 +50,17 @@ Nel progetto, le definizioni del prodotto (KPI, categorie di costo, decisioni E-
 | Codice | Sezione | Uso |
 |--------|---------|-----|
 | **6001–6012** | Erario | IVA mensile (gennaio–dicembre); periodo = anno |
-| **6031–6034** | Erario | IVA trimestrale (1°–4° trimestre) |
+| **6031–6033** | Erario | IVA trimestrale, 1°–3° trimestre. Per opzione: +1% di interessi sul debito |
+| **6034** | Erario | 4° trimestre **solo** per i trimestrali speciali (autotrasporto, carburanti…), senza l'1% |
+| **6099** | Erario | Saldo IVA annuale; i trimestrali per opzione ci versano il 4° trimestre, con l'1% |
 | **6035** | Erario | **Solo** acconto IVA (dicembre), mai il versamento di un mese |
 | **1001** | Erario | Ritenute su retribuzioni dipendenti (non sezione INPS) |
 | **1040** | Erario | Ritenute lavoro autonomo (CU/770 ST), per data di pagamento |
 | **1038** | Erario | Ritenute su provvigioni, agenzia, mediazione |
 | **1039** | — | **Solo** riconciliazione incassi: ritenuta 11% su bonifici versata da banche/Poste, **non** F24 impresa |
 | **1041** | — | **Non** usare come ritenute appalti edilizia |
+
+La periodicità (mensile, trimestrale per opzione, trimestrale speciale, esonerato/forfettario) deve stare nelle impostazioni fiscali: se manca, non dedurla, segnala la riga IVA «da completare».
 
 Contributi INPS (sezione INPS, causali DM10 ecc.) separati dall'IRPEF: non sommare tutto sotto un solo codice. Per codici diversi da questi verifica sulla tabella ufficiale dei codici tributo AdE prima di proporli.
 

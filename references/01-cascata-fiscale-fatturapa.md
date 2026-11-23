@@ -9,7 +9,7 @@
 5. `Imposta` = `HALF_UP(ImponibileImporto × AliquotaIVA / 100, 2)` — tolleranza SDI **±0,01 €**. Calcolata sul **gruppo**, non come somma delle IVA di riga: con n righe l'errore della somma arriva a n × 0,005 € (simulazione: 10 righe al 22% → ~10% delle fatture fuori tolleranza). Se serve un'IVA per riga, il resto si scarica sull'ultima riga del gruppo.
 6. `ImportoBollo` (2,00 € se la somma degli importi **senza IVA** del documento > 77,47 €: vedi R1.4)
 7. `ImportoTotaleDocumento` = imponibili + imposte (+ bollo addebitato), **al lordo della ritenuta**
-8. `DatiRitenuta` (RT01/RT02) se almeno una riga `Ritenuta = SI` (00411)
+8. `DatiRitenuta` (RT01/RT02) se almeno una riga `Ritenuta = SI` (00411). `TipoRitenuta` descrive **chi subisce la ritenuta, cioè il CedentePrestatore**, non il cliente: RT01 per persona fisica o ditta individuale, RT02 per società di capitali o ente (società di persone e studi associati: configurabile). Il cliente decide solo se la ritenuta si applica: sì se è sostituto d'imposta, no se è un privato; mai se l'emittente è forfettario. `CausalePagamento` (A, M, …) dal profilo dell'emittente, modificabile sulla fattura
 9. `NettoAPagare` = totale documento − ritenuta (è `ImportoPagamento`); **ricavo di competenza** resta lordo imponibile
 
 Anti-pattern: salvare il totale netto ritenuta e scriverlo come `ImportoTotaleDocumento`; usare un solo campo «totale» per XML, Cassa e prima nota.
