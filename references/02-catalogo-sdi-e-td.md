@@ -50,14 +50,34 @@ Integrare in pre-validazione oltre a 00100 e 004xx:
 | TD16–TD20 | Integrazioni / autofatture (RC, estero, intra, regolarizzazioni) |
 | TD22–TD29 | Estrazioni deposito, differite, triangolari, TD26 ammortizzabili, TD28 San Marino, **TD29** omessa/irregolare fattura |
 
-TD29: comunicazione denuncia; **non** autofattura RC (usare TD20+TD16).
+TD29: comunicazione all'AdE della fattura omessa o irregolare del fornitore (dal 01/04/2025; per questo caso sostituisce il TD20). **Non** è un documento di integrazione del reverse charge: quello è TD16 (RC interno, es. subappalto edile) o TD17–TD19 (acquisti da estero).
+
+### Ricezione: cosa diventa costo
+
+| TipoDocumento in arrivo | Trattamento |
+|-------------------------|-------------|
+| TD01, TD02, TD03, TD05, TD06, TD24, TD25, TD26, TD27 | Fattura del fornitore: costo + IVA secondo detraibilità |
+| TD04 | Nota di credito: storna costo e IVA della fattura d'origine |
+| TD16–TD19 | Integrazione/autofattura dell'azienda stessa: IVA a debito **e** a credito, collegata alla fattura d'origine; **non** un secondo costo |
+| TD20, TD28 | Documenti dell'azienda (regolarizzazione, San Marino): stessa logica, non un costo nuovo |
+| TD29 | Fuori registri IVA e detrazione (B8) |
+| Sconosciuto | In coda con motivo, mai costo automatico |
+
+Riepilogo con Natura N6.x in arrivo = reverse charge: l'IVA è 0 nel documento, ma va integrata dal cessionario (aliquota da proporre). Detrazione IVA: nel periodo di **ricezione** (a cavallo d'anno una fattura di dicembre ricevuta a gennaio va nell'anno nuovo).
+
+### Identificativi nell'XML
+
+- `IdPaese` + `IdCodice` separati: `IdCodice` **senza** prefisso `IT` (anche nel nome file `IT<piva>_<progr>.xml`).
+- P.IVA estera: niente checksum italiano; `IdPaese` dal prefisso, non da un default «IT».
+- `PECDestinatario`: formato email valido e mai una casella `@pec.fatturapa.it` (00330).
+- `Quantita` e `PrezzoUnitario` con gli stessi decimali usati per calcolare `PrezzoTotale` (fino a 8), altrimenti 00423.
 
 ## Checksum anagrafica
 
 ### Partita IVA (11 cifre)
 
 - Luhn **modificato** (posizioni pari raddoppiate, somma modulo 10).
-- **Bloccare esplicitamente `00000000000`** (può superare il test formale in implementazioni deboli).
+- **Bloccare esplicitamente `00000000000`** (supera il checksum: somma 0, cifra di controllo 0). Se nel codice ci sono più validatori, devono dare lo stesso esito: cercali tutti.
 
 ### Codice fiscale (16 caratteri)
 

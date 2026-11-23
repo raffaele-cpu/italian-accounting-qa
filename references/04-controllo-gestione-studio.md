@@ -24,7 +24,9 @@ Non sommare `C_effettivo` e `I_residuo`.
 | **Markup %** (su costo) | `Prezzo = Costo × (1 + k)` |
 | Esempio | m=25% → prezzo 133,33 da costo 100; k=25% → 125 (margine reale 20%) |
 
-Bloccare `m ≥ 1` o `m < 0`.
+Bloccare `m ≥ 1` (prezzo infinito o negativo). `m < 0` (vendita sottocosto) è lecito: avviso, non blocco.
+
+Nel progetto, le definizioni del prodotto (KPI, categorie di costo, decisioni E-ID) prevalgono su queste formule generiche: una differenza va in [DIVERGENZA DA DECIDERE].
 
 ## EBITDA e BEP (R3.3)
 
@@ -38,20 +40,25 @@ Bloccare `m ≥ 1` o `m < 0`.
 
 ## Export commercialista (flussi)
 
-1. **Prima nota** — dare/avere, commessa, partite, ritenute garanzia, **11% bonifici parlanti**.
+1. **Prima nota** — dare/avere, commessa, partite, ritenute garanzia, **11% bonifici parlanti**. Ogni registrazione deve quadrare anche con ritenuta e bollo: fornitore = costo + IVA − ritenuta (Avere «Erario c/ritenute da versare»); cliente = ricavo + IVA − ritenuta subita (Dare «Erario c/ritenute subite»). Se il totale salvato è già al netto, la ritenuta va ricavata e registrata, altrimenti la fattura esce dai registri.
 2. **Registri IVA** — TD16–TD19 in vendite **e** acquisti; **escludere TD29**.
 3. **CU** — per **DataPagamento** (ritenute a cassa).
 4. **F24** — Erario periodo competenza.
 
 ### Codici tributo F24 (azienda)
 
-| Codice | Uso |
-|--------|-----|
-| **1040** | Lavoro autonomo / assimilati (CU/770 ST) |
-| **1038** | Provvigioni, agenzia, mediazione |
-| **9399** | Regolarizzazione IVA |
-| **1039** | **Solo** riconciliazione incassi: ritenuta 11% su bonifici (banche/Poste), **non** F24 impresa |
-| **1041** | **Non** usare come ritenute appalti edilizia |
+| Codice | Sezione | Uso |
+|--------|---------|-----|
+| **6001–6012** | Erario | IVA mensile (gennaio–dicembre); periodo = anno |
+| **6031–6034** | Erario | IVA trimestrale (1°–4° trimestre) |
+| **6035** | Erario | **Solo** acconto IVA (dicembre), mai il versamento di un mese |
+| **1001** | Erario | Ritenute su retribuzioni dipendenti (non sezione INPS) |
+| **1040** | Erario | Ritenute lavoro autonomo (CU/770 ST), per data di pagamento |
+| **1038** | Erario | Ritenute su provvigioni, agenzia, mediazione |
+| **1039** | — | **Solo** riconciliazione incassi: ritenuta 11% su bonifici versata da banche/Poste, **non** F24 impresa |
+| **1041** | — | **Non** usare come ritenute appalti edilizia |
+
+Contributi INPS (sezione INPS, causali DM10 ecc.) separati dall'IRPEF: non sommare tutto sotto un solo codice. Per codici diversi da questi verifica sulla tabella ufficiale dei codici tributo AdE prima di proporli.
 
 Appalti >200k €: codice delega **09** (Committente).
 
@@ -77,3 +84,8 @@ F24 e CU alla **data quietanza**; pagamenti parziali ripartiti pro-quota tra ann
 | A4.5 | Storico non immutabile |
 | A4.6 | TD16–TD20 / TD29 ruoli invertiti |
 | A4.7 | Bonifico parlante non scorporato |
+| A4.8 | IVA del riepilogo come somma delle IVA di riga |
+| A4.9 | Natura derivata dall'aliquota (0% = N2.2 sempre) |
+| A4.10 | Partita doppia che non quadra con ritenuta o bollo |
+| A4.11 | Codice tributo IVA del mese = 6035 |
+| A4.12 | Esigibilità D (IVA per cassa) detratta subito |

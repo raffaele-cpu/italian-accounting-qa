@@ -36,7 +36,9 @@ Subappalti e servizi (pulizia, demolizione, impianti, completamento): **N6.x**; 
 
 ## DURF (art. 17-bis D.Lgs. 241/1997)
 
-Appalti/subappalti privati **> 200.000 €/anno** senza DURF: verifica versamenti ritenute lavoratori → F24 deleghe distinte codice identificativo **"09"** (Committente).
+Appalti/subappalti privati **> 200.000 €/anno** (per singola impresa) senza DURF: verifica versamenti ritenute lavoratori → F24 deleghe distinte codice identificativo **"09"** (Committente).
+
+Si applica solo se ricorrono **tutte** le condizioni: opere/servizi con **prevalente utilizzo di manodopera**, presso le **sedi di attività del committente**, con **beni strumentali** del committente o a lui riconducibili. Fuori da queste condizioni nessun obbligo.
 
 ## Ciclo SAL e TD04
 

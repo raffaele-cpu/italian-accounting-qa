@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import re
 import sys
 from decimal import Decimal, ROUND_HALF_UP
 from typing import Iterable
@@ -15,7 +16,6 @@ ODD_LETTER = [
 CF_BODY = (
     r"^[A-Z]{6}[0-9LMNPQRSTUV]{2}[ABCDEHLMPRST][0-9LMNPQRSTUV]{2}[A-Z][0-9LMNPQRSTUV]{3}[A-Z]$"
 )
-import re
 
 CF_RE = re.compile(CF_BODY)
 
@@ -83,17 +83,44 @@ def simulate_iva_riepilogo(imponibile: Decimal, aliquota_pct: Decimal) -> Decima
 
 def simulate_beni_significativi(totale: Decimal, bene: Decimal) -> tuple[Decimal, Decimal]:
     """Resto lavori P = T - B; se B > P applica cap R5.1 manutenzioni abitative."""
+    if bene < 0 or bene > totale:
+        raise ValueError("valore del bene significativo fuori da [0, totale]")
     resto = totale - bene
-    if bene <= resto or resto < 0:
+    if bene <= resto:
         return totale, Decimal(0)
     base_10 = resto * 2
     base_22 = bene - resto
     return base_10, base_22
 
 
+def half_up_div(numerator: int, denominator: int) -> int:
+    """Divisione intera con arrotondamento HALF_UP (lontano da zero), senza float.
+
+    Il `round()` di Python arrotonda al pari (183 × 11 / 122 = 16,5 → 16): non usarlo sugli importi.
+    """
+    if denominator <= 0:
+        raise ValueError("denominatore deve essere positivo")
+    sign = -1 if numerator < 0 else 1
+    q, r = divmod(abs(numerator), denominator)
+    return sign * (q + (1 if 2 * r >= denominator else 0))
+
+
 def simulate_bonifico_parlante(total_cents: int, rate_pct: int = 11) -> int:
-    """Allineato a `shared/lib/invoices/bank-withholding.ts`: round(total_cents × rate / 122)."""
-    return round(total_cents * rate_pct / 122)
+    """Ritenuta banca: HALF_UP(total_cents × rate / 122). Su importi positivi coincide con
+    `Math.round` di JS usato in building-core `shared/lib/invoices/bank-withholding.ts`."""
+    return half_up_div(total_cents * rate_pct, 122)
+
+
+def vat_line_vs_group(imponibili_cents: list[int], rate_pct: int) -> dict[str, int | bool]:
+    """Confronta l'IVA sommata riga per riga con quella del gruppo (00421, tolleranza ±1 cent)."""
+    per_line = sum(half_up_div(c * rate_pct, 100) for c in imponibili_cents)
+    group = half_up_div(sum(imponibili_cents) * rate_pct, 100)
+    return {
+        "iva_somma_righe": per_line,
+        "iva_gruppo": group,
+        "diff": per_line - group,
+        "00421_ok_se_si_usa_somma_righe": abs(per_line - group) <= 1,
+    }
 
 
 def simulate_sdi_tolerances(
@@ -113,7 +140,19 @@ def run_self_test() -> None:
         ("iva_22", simulate_iva_riepilogo(Decimal("100"), Decimal("22")) == Decimal("22.00")),
         ("beni_B_gt_P", simulate_beni_significativi(Decimal("10000"), Decimal("6000")) == (Decimal("8000"), Decimal("2000"))),
         ("bonifico_11", simulate_bonifico_parlante(1_100_000, 11) == 99_180),
+        ("bonifico_half_up", simulate_bonifico_parlante(183, 11) == 17),
+        ("half_up_negative", half_up_div(-5, 10) == -1),
+        ("piva_zeros_with_prefix_blocked", not is_valid_piva("IT00000000000")),
+        (
+            "vat_group_00421",
+            vat_line_vs_group([9393, 25969, 24883, 40583, 63397], 22)["diff"] == -2,
+        ),
     ]
+    try:
+        simulate_beni_significativi(Decimal("100"), Decimal("150"))
+        asserts.append(("beni_invalid_raises", False))
+    except ValueError:
+        asserts.append(("beni_invalid_raises", True))
     failed = [name for name, ok in asserts if not ok]
     if failed:
         print("SELF-TEST FAILED:", ", ".join(failed), file=sys.stderr)
@@ -127,6 +166,11 @@ def main(argv: Iterable[str] | None = None) -> int:
     parser.add_argument("--piva", action="append", default=[])
     parser.add_argument("--cf", action="append", default=[])
     parser.add_argument("--simulate-sdi", action="store_true", help="Run SDI tolerance demo on 1000 at 22 percent")
+    parser.add_argument(
+        "--vat-groups",
+        help="Imponibili di riga in centesimi separati da virgola: confronta IVA per riga vs per gruppo",
+    )
+    parser.add_argument("--rate", type=int, default=22, help="Aliquota per --vat-groups (default 22)")
     args = parser.parse_args(list(argv) if argv is not None else None)
 
     if args.self_test:
@@ -140,7 +184,11 @@ def main(argv: Iterable[str] | None = None) -> int:
     if args.simulate_sdi:
         print(simulate_sdi_tolerances(Decimal("1000"), Decimal("22"), Decimal("220.00"), Decimal("1000.5")))
 
-    if not args.self_test and not args.piva and not args.cf and not args.simulate_sdi:
+    if args.vat_groups:
+        cents = [int(x) for x in args.vat_groups.split(",") if x.strip()]
+        print(vat_line_vs_group(cents, args.rate))
+
+    if not args.self_test and not args.piva and not args.cf and not args.simulate_sdi and not args.vat_groups:
         parser.print_help()
         return 2
     return 0

@@ -34,17 +34,33 @@ Opzioni: `-g` (globale), `--agent '*'` (tutti gli agenti). Vedi `README.md`.
 
 1. **Ambito** — chiedi o inferisci: emissione FE, ricezione SDI, preventivi/commesse, contabilità/export, solo anagrafica.
 2. **Carica contesto** — leggi i `references/` pertinenti (non tutto il corpus se il task è circoscritto).
-3. **Script deterministici** — per P.IVA/CF e sanity check numerici (dalla root della skill installata o da `.cursor/skills/italian-accounting-qa/`):
+3. **Script deterministici** — per P.IVA/CF e sanity check numerici, dalla root della skill installata (`~/.claude/skills/italian-accounting-qa/`, `.cursor/skills/italian-accounting-qa/` o il clone del repo). Su Windows l'interprete è spesso `python`, non `python3`:
    ```bash
    python scripts/validate_fiscal_ids.py --self-test
    python scripts/validate_fiscal_ids.py --piva 12345678903 --cf RSSMRA80A01H501U
+   python scripts/validate_fiscal_ids.py --vat-groups 9393,25969,24883,40583,63397 --rate 22
    ```
-4. **Mappatura codice** — cerca in `shared/`, `server/lib/sdi/`, `server/lib/services/*invoice*`, `client/src/modules/Billing/`, contabilità e commesse.
-5. **Report** — classifica ogni rilievo:
-   - **[BLOCCANTE]** — rischio scarto SDI, errore fiscale, double-counting ricavi/costi, float su importi fiscali, violazione immutabilità storica.
+4. **Mappatura codice** — in `building-core`:
+
+   | Area | Dove |
+   |------|------|
+   | XML emesso (TD01/TD04), riepiloghi, Natura, bollo, ritenuta | `server/lib/services/fatturapa-xml-build.ts`, `fatturapa-xml.service.ts`, `fatturapa-xml-credit-note.service.ts` |
+   | Totali fattura e IVA di riga | `shared/schemas/accounting.schema.ts` (`calculateInvoiceTotals`), `shared/lib/invoice-line-net.ts`, `server/routes/invoices/issued-items.prepare.ts` |
+   | Destinatario SDI, P.IVA/CF | `shared/lib/sdi-recipient.ts`, `shared/lib/italian-vat.ts`, `shared/lib/vat-tax-code.ts` |
+   | Ricezione SDI | `server/lib/sdi/`, `server/lib/services/sdi-inbound-*.ts`, `fatturapa-xml-parser.service.ts` |
+   | Prima nota, registri, F24 | `shared/lib/ledger-*.ts`, `server/lib/services/ledger/`, `server/lib/services/iva-*.ts` |
+   | Commesse, SAL, KPI | `shared/lib/contabilita/`, `shared/lib/costs/kpi/`, `shared/lib/finance-report/` |
+   | UI fatture (modulo «Billing», non è Stripe) | `client/src/modules/Billing/` |
+
+   Altri repo: cerca gli equivalenti con grep su `DatiRiepilogo`, `ImponibileImporto`, `TipoDocumento`, `codiceTributo`.
+5. **Tassonomia del progetto** — prima di giudicare costi, margini e KPI leggi le definizioni del prodotto: in `building-core` `Docs/product/systems/cost-classification.md` (10 categorie + Movimenti non economici, Fisso/Variabile, registro `cost_allocations`, KPI in `shared/lib/costs/kpi/`) e le decisioni numerate **E-ID** nei piani `tasks/costi/`. Una regola di questa skill che diverge da una decisione E-ID documentata non è un bug: va in **[DIVERGENZA DA DECIDERE]** citando l'E-ID. Usa il vocabolario del manuale (MdC, «Da classificare», produzione, cassetto), non sinonimi.
+6. **Report** — classifica ogni rilievo:
+   - **[BLOCCANTE]** — rischio scarto SDI, errore fiscale, double-counting ricavi/costi, float su importi fiscali, violazione immutabilità storica, partita doppia che non quadra.
    - **[ALTO]** — gap su controlli 00200–00330, tolleranze SDI, routing 2027, TD/RegimeFiscale, export F24 errato.
    - **[MIGLIORAMENTO]** — copertura test, documentazione, allineamento a v. 1.10 prima della data switch.
-6. **Patch** — proponi diff mirati (file + righe); non applicare fix fiscalmente sensibili senza conferma utente.
+   - **[DIVERGENZA DA DECIDERE]** — scelta di prodotto documentata (E-ID, manuale) diversa dalla regola generica: si decide con l'utente, non si corregge d'ufficio.
+   Ricontrolla sul codice ogni [BLOCCANTE] riportato da un sottoagente prima di metterlo nel report.
+7. **Patch** — proponi diff mirati (file + righe); non applicare fix fiscalmente sensibili senza conferma utente.
 
 ## Regole [BLOCCANTI] (sempre verificare)
 
@@ -58,7 +74,11 @@ Opzioni: `-g` (globale), `--agent '*'` (tutti gli agenti). Vedi `README.md`.
 | B6 | **Immutabilità storica** — documenti emessi: snapshot di aliquote, regimi, diciture; no overwrite in-place | A4.5 |
 | B7 | **Tolleranze pre-validazione SDI**: Imposta ±0,01 € (00421); ImponibileImporto ±1,00 € (00422); PrezzoTotale esatto (00423) | `references/02-catalogo-sdi-e-td.md` |
 | B8 | **TD29** — nessuna registrazione in registro IVA acquisti né detrazione; fornitore in CedentePrestatore, paese IT | R5.5 |
-| B9 | **F24 azienda**: 1040, 1038, 9399; **1039** solo riconciliazione incassi bonifici parlanti (banche/Poste), non F24 impresa; **non usare 1041** per ritenute appalti; appalti >200k € senza DURF → delega codice identificativo **09** | `references/04-controllo-gestione-studio.md` |
+| B9 | **F24 azienda**: IVA mensile **6001–6012**, trimestrale **6031–6034**, **6035 solo acconto**; ritenute 1040 / 1038, dipendenti **1001** in sezione Erario; **1039** solo riconciliazione incassi bonifici parlanti (banche/Poste), non F24 impresa; **non usare 1041** per ritenute appalti; appalti >200k € senza DURF → delega codice identificativo **09** | `references/04-controllo-gestione-studio.md` |
+| B10 | **Imposta per gruppo, non per riga**: `Imposta` = HALF_UP(Σ imponibili del gruppo × aliquota). La somma delle IVA arrotondate riga per riga sfora ±0,01 € (00421) già con 5+ righe | `references/01-*` |
+| B11 | **Natura da operazione, non da aliquota**: aliquota 0 non implica N2.2; reverse charge → N6.x, esenti → N4, non imponibili → N3.x | R1.5, 00445 |
+| B12 | **ImportoTotaleDocumento al lordo della ritenuta**; ritenuta in `DatiRitenuta`, bollo in `DatiBollo`; la partita doppia deve quadrare con ritenuta e bollo | R1.1, R1.4 |
+| B13 | **Ricezione SDI per TipoDocumento**: solo TD01–TD03, TD05, TD06, TD24–TD27 diventano costo del fornitore; TD16–TD20, TD28 sono documenti dell'azienda stessa (integrazione: IVA a debito **e** a credito); TD29 fuori registri | `references/02-*`, B8 |
 
 ## Puntatori ai references
 
@@ -79,6 +99,20 @@ Opzioni: `-g` (globale), `--agent '*'` (tutti gli agenti). Vedi `README.md`.
 - Beni significativi: art. 7 L. 488/1999 → art. 35 c. 4 + Tab. A IV n. 121 D.Lgs. 10/2026 (nn. 116–117 beni finiti/recupero).
 - Conservazione: **UNI 11386:2020** (SInCRO); chiusura entro 3 mesi dalla dichiarazione redditi (prudente **01/02/2027** fatture 2025; **31/01/2028** per 2026); decennale.
 - Codici **00448** e **00460**: verificare testo integrale Elenco Controlli v. 1.10 prima del freeze.
+- Fonti da confermare prima di citarle come certe: proroga split payment (decisione UE 2026/1728, 30/06/2029) e data di pubblicazione delle Specifiche v. 1.10. Il codice tributo **9399** è stato tolto da B9: non verificato.
+
+## Anti-pattern trovati sul campo (audit building-core 23/11/2026)
+
+- IVA di riga arrotondata e poi sommata nel riepilogo → scarti 00421 (B10).
+- `Natura = "N2.2"` fissa per ogni riga allo 0%: il reverse charge edile esce come «non soggetta» (B11).
+- `total_cents` salvato al netto della ritenuta e scritto come `ImportoTotaleDocumento`; nessun `DatiRitenuta` / `DatiBollo` (B12).
+- Bollo calcolato su «IVA totale = 0», quindi applicato anche al reverse charge (N6 è operazione soggetta, niente bollo).
+- Prima nota con costo + IVA = totale netto ritenuta → sbilancio, fattura esclusa dai registri.
+- F24 IVA mensile con 6035.
+- Ricezione: ogni TD diverso da TD04 registrato come costo con IVA detraibile (B13); reverse charge ricevuto con IVA 0.
+- Prefisso `IT` lasciato in `IdCodice`; P.IVA estera validata col checksum italiano; validatore P.IVA che accetta `00000000000`.
+- `Quantita` scritta con meno decimali di quelli usati per `PrezzoTotale` (00423).
+- Detrazione IVA per data fattura invece che per ricezione a cavallo d'anno.
 
 ## Output atteso dell’audit
 
@@ -93,6 +127,12 @@ Opzioni: `-g` (globale), `--agent '*'` (tutti gli agenti). Vedi `README.md`.
 ...
 
 ## [MIGLIORAMENTO]
+...
+
+## [DIVERGENZA DA DECIDERE]
+- Decisione / E-ID — regola generica — opzioni
+
+## Verificato e corretto
 ...
 
 ## Copertura skill
