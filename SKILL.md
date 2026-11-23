@@ -12,7 +12,7 @@ description: >-
 
 # Italian Accounting QA (2026–2027)
 
-Specifica operativa per agenti che verificano **Pratico for Building** (`building-core`) e moduli collegati. Fonte estesa: `tasks/Specifica QA Fiscale Contabile SaaS.md` (ripulita nei file `references/`).
+Specifica operativa per agenti che verificano **Pratico for Building** (`building-core`) e moduli collegati. La normativa sta nei file `references/`.
 
 ## Installazione (`npx skills`)
 
